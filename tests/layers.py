@@ -3,6 +3,8 @@ from torch import nn,Tensor
 from einops import einsum,rearrange
 from jaxtyping import Float, Int, Bool
 import numpy as np
+from collections.abc import Callable, Iterable
+from typing import Optional
 
 def init_paras(layer):
     pass
@@ -238,3 +240,69 @@ class transformer_lm(nn.Module):
         # x=softmax()(x,-1)
         return x
         
+class cross_entropy(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x: Float[Tensor, "batch_size vocab_size"], target : Int[Tensor,"batch_size"]):
+        c=torch.max(x,dim=-1,keepdim=True).values
+        x-=c
+        log_den=torch.log(torch.sum(torch.exp(x),dim=-1,keepdim=True))
+        log_prob=log_den-x
+        log_prob_tgt=torch.gather(log_prob,index=target.unsqueeze(1),dim=-1).squeeze(1)
+        return log_prob_tgt.mean()
+    
+
+class adamw(torch.optim.Optimizer):
+    def __init__(self,weights,lr,betas=(0.9,0.95),weight_decay=0.01,eps=1e-8):
+        defaults={"lr" : lr}
+        super().__init__(weights,defaults)
+        self.beta_1,self.beta_2=betas
+        for group in self.param_groups:
+            group['m']=[torch.zeros_like(p) for p in group['params']]
+            group['v']=[torch.zeros_like(p) for p in group['params']]
+
+        self.lamb=weight_decay
+        self.eps=eps
+
+    def step(self,closure: Optional[Callable]=None):
+        loss = None if closure is None else closure()
+        for group in self.param_groups:
+            lr=group['lr']
+            for idx,p in enumerate(group["params"]):
+                if p.grad is None:
+                    continue
+                state=self.state[p]
+                t=state.get("t",1)
+                grad=p.grad.data
+                group['m'][idx]=self.beta_1*group['m'][idx]+(1-self.beta_1)*grad
+                group['v'][idx]=self.beta_2*group['v'][idx]+(1-self.beta_2)*(grad**2)
+                lr_t=lr*np.sqrt(1-self.beta_2**t)/(1-self.beta_1**t)
+                p.data-=lr_t*group['m'][idx]/(torch.sqrt(group['v'][idx])+self.eps)
+                p.data-=lr*self.lamb*p.data
+                state["t"]=t+1
+
+def get_lr_cosine_schedule(
+            it: int,
+            max_learning_rate: float,
+            min_learning_rate: float,
+            warmup_iters: int,
+            cosine_cycle_iters: int,
+):
+    if it<warmup_iters:
+        return it/warmup_iters*max_learning_rate
+    if it<=cosine_cycle_iters:
+        theta=(it-warmup_iters)/(cosine_cycle_iters-warmup_iters)*np.pi
+        return min_learning_rate+(np.cos(theta)+1)/2*(max_learning_rate-min_learning_rate)
+    return min_learning_rate
+
+def grad_clip(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float, eps: float = 1e-6):
+    grad_norm=0
+    for p in parameters:
+        if p.grad!=None: 
+            grad_norm+=(p.grad**2).sum()
+    grad_norm=torch.sqrt(grad_norm)
+    if grad_norm>max_l2_norm:
+        for p in parameters:
+            if p.grad!=None: 
+                p.grad=p.grad*max_l2_norm/(grad_norm+eps)

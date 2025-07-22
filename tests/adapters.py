@@ -19,6 +19,7 @@ import numpy as np
 from finder import find_max_pairs_cython,update_pairs_cnt,encode_apply_merges
 from .layers import c_linear,embedding,rmsnorm,swishglu,rope,softmax,attention,casual_mha
 from .layers import transformer_block,transformer_lm
+from .layers import cross_entropy,adamw,get_lr_cosine_schedule,grad_clip
 
 
 def run_linear(
@@ -513,7 +514,8 @@ def run_cross_entropy(inputs: Float[Tensor, " batch_size vocab_size"], targets: 
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    cr=cross_entropy()
+    return cr(inputs,targets)
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
@@ -525,14 +527,15 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    grad_clip(parameters,max_l2_norm)
+    return
 
 
 def get_adamw_cls() -> type[torch.optim.Optimizer]:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return adamw
 
 
 def run_get_lr_cosine_schedule(
@@ -560,7 +563,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return get_lr_cosine_schedule(it,max_learning_rate,min_learning_rate,warmup_iters,cosine_cycle_iters)
 
 
 def run_save_checkpoint(

@@ -62,3 +62,15 @@ total: 4,513,336,524,800=4.5TFLOPs
 attention parts take more while lm_head parts take less propotion of total flops.
 
 (e) According to the expression, the multi-head attention (MHA) layers contain a quadratic term in context length, while all other components depend only linearly on it. Consequently, when the context length is multiplied by 16, the FLOPs for the feed-forward (FFN) and language-model-head (LM-head) layers increase by a factor of 16, whereas the MHA FLOPs grow by a factor of 74.2.
+
+# Problem (learning_rate_tuning)
+
+1: loss is decreasing
+
+1e2: loss doesn't change
+
+1e3: loss is diverging
+
+# Problem (adamwAccounting)
+
+NotImplementedError
