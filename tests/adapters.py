@@ -20,6 +20,8 @@ from finder import find_max_pairs_cython,update_pairs_cnt,encode_apply_merges
 from .layers import c_linear,embedding,rmsnorm,swishglu,rope,softmax,attention,casual_mha
 from .layers import transformer_block,transformer_lm
 from .layers import cross_entropy,adamw,get_lr_cosine_schedule,grad_clip
+from .data_preprocess import process_1d_array
+from .utils import load_checkpoint,save_checkpoint
 
 
 def run_linear(
@@ -481,7 +483,8 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
+    x,y = process_1d_array(dataset,batch_size,context_length,device)
+    return x,y
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
@@ -582,7 +585,7 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model,optimizer,iteration,out)
 
 
 def run_load_checkpoint(
@@ -603,7 +606,7 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    return load_checkpoint(src,model,optimizer)
 
 
 class Tokenizer():

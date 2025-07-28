@@ -258,9 +258,12 @@ class adamw(torch.optim.Optimizer):
         defaults={"lr" : lr}
         super().__init__(weights,defaults)
         self.beta_1,self.beta_2=betas
+        # for group in self.param_groups:
+        #     group['m']=[torch.zeros_like(p) for p in group['params']]
+        #     group['v']=[torch.zeros_like(p) for p in group['params']]
         for group in self.param_groups:
-            group['m']=[torch.zeros_like(p) for p in group['params']]
-            group['v']=[torch.zeros_like(p) for p in group['params']]
+            self.state['m']={idx:torch.zeros_like(p) for idx,p in enumerate(group['params'])}
+            self.state['v']={idx:torch.zeros_like(p) for idx,p in enumerate(group['params'])}
 
         self.lamb=weight_decay
         self.eps=eps
@@ -275,10 +278,10 @@ class adamw(torch.optim.Optimizer):
                 state=self.state[p]
                 t=state.get("t",1)
                 grad=p.grad.data
-                group['m'][idx]=self.beta_1*group['m'][idx]+(1-self.beta_1)*grad
-                group['v'][idx]=self.beta_2*group['v'][idx]+(1-self.beta_2)*(grad**2)
+                self.state['m'][idx]=self.beta_1*self.state['m'][idx]+(1-self.beta_1)*grad
+                self.state['v'][idx]=self.beta_2*self.state['v'][idx]+(1-self.beta_2)*(grad**2)
                 lr_t=lr*np.sqrt(1-self.beta_2**t)/(1-self.beta_1**t)
-                p.data-=lr_t*group['m'][idx]/(torch.sqrt(group['v'][idx])+self.eps)
+                p.data-=lr_t*self.state['m'][idx]/(torch.sqrt(self.state['v'][idx])+self.eps)
                 p.data-=lr*self.lamb*p.data
                 state["t"]=t+1
 
